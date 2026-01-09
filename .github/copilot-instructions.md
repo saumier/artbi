@@ -4,7 +4,7 @@
 This is a Rails 8.1.2 application configured without Active Record (database-less). The application uses modern Rails conventions and the Hotwire stack.
 
 ## Technology Stack
-- Ruby (version specified in `.ruby-version`)
+- Ruby 3.4.4
 - Rails 8.1.2
 - Hotwire (Turbo + Stimulus)
 - Importmap for JavaScript
@@ -19,7 +19,9 @@ This is a Rails 8.1.2 application configured without Active Record (database-les
 
 ## Testing
 - Use Rails' built-in test framework (Test::Unit)
-- Run all tests with: `bin/rails test test:system`
+- Run unit tests: `bin/rails test`
+- Run system tests: `bin/rails test:system`
+- Run all tests: `bin/rails test test:system`
 - System tests use Capybara with Selenium WebDriver
 
 ## Key Conventions
@@ -33,4 +35,3 @@ This is a Rails 8.1.2 application configured without Active Record (database-les
 - Run console: `bin/rails console`
 - Run linter: `bin/rubocop`
 - Run security scan: `bin/brakeman`
-- Run tests: `bin/rails test`
