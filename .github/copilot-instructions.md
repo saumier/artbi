@@ -20,7 +20,6 @@ This is a Rails 8.1.2 application configured without Active Record (database-les
 ## Testing
 - Use Rails' built-in test framework (Test::Unit)
 - Run all tests with: `bin/rails test test:system`
-- Prepare test database with: `bin/rails db:test:prepare`
 - System tests use Capybara with Selenium WebDriver
 
 ## Key Conventions
