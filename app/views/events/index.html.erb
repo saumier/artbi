@@ -1,0 +1,250 @@
+<% content_for :title, "Événements au Canada" %>
+
+<%# ── Navigation ──────────────────────────────────────────────────── %>
+<nav class="ev-nav">
+  <div class="ev-nav__inner">
+    <a class="ev-nav__brand" href="/">ArtBI</a>
+    <button class="ev-nav__toggle" id="evNavToggle" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="ev-nav__links" id="evNavLinks">
+      <li><a href="/" class="ev-nav__link">Accueil</a></li>
+      <li><a href="<%= events_path %>" class="ev-nav__link ev-nav__link--active">Événements</a></li>
+    </ul>
+  </div>
+</nav>
+
+<%# ── Hero ────────────────────────────────────────────────────────── %>
+<header class="ev-hero">
+  <div class="ev-hero__inner">
+    <p class="ev-hero__eyebrow">Partout au Canada</p>
+    <h1 class="ev-hero__title">Événements culturels</h1>
+    <p class="ev-hero__subtitle">Spectacles, concerts, expositions&thinsp;—&thinsp;découvrez la scène artistique canadienne</p>
+  </div>
+  <div class="ev-hero__wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z" fill="#f8f7ff"/>
+    </svg>
+  </div>
+</header>
+
+<%# ── Search bar ──────────────────────────────────────────────────── %>
+<section class="ev-search-section">
+  <div class="ev-container">
+    <%= form_with url: events_path, method: :get, local: true, class: "ev-search-form" do |f| %>
+      <div class="ev-search-form__row">
+
+        <%# Keyword ─────────────────────────────────────────────── %>
+        <div class="ev-search-form__field ev-search-form__field--keyword">
+          <label class="ev-search-form__label" for="q">Mot-clé</label>
+          <div class="ev-search-form__input-wrapper">
+            <svg class="ev-search-form__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <%= f.text_field :q,
+                  id: "q",
+                  value: @search_query,
+                  placeholder: "Rechercher un événement…",
+                  class: "ev-search-form__input ev-search-form__input--has-icon",
+                  autocomplete: "off" %>
+          </div>
+        </div>
+
+        <%# Location autocomplete ────────────────────────────────── %>
+        <div class="ev-search-form__field ev-search-form__field--location"
+             data-controller="autocomplete"
+             data-autocomplete-url-value="<%= event_locations_path %>"
+             data-autocomplete-min-length-value="1">
+
+          <label class="ev-search-form__label" for="location_input">Ville ou province</label>
+          <div class="ev-search-form__input-wrapper">
+            <svg class="ev-search-form__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+            <input type="text"
+                   id="location_input"
+                   placeholder="Ville ou province…"
+                   class="ev-search-form__input ev-search-form__input--has-icon"
+                   autocomplete="off"
+                   value="<%= @location_label.present? ? @location_label : '' %>"
+                   data-autocomplete-target="input"
+                   data-action="input->autocomplete#onInput keydown->autocomplete#onKeydown">
+          </div>
+
+          <%# Hidden fields submitted with the form %>
+          <input type="hidden" name="location"       value="<%= @location %>"       data-autocomplete-target="hiddenValue">
+          <input type="hidden" name="location_type"  value="<%= @location_type %>"  data-autocomplete-target="hiddenType">
+          <input type="hidden" name="location_label" value="<%= @location_label %>" data-autocomplete-target="hiddenLabel">
+
+          <%# Dropdown ─ hidden until results appear %>
+          <ul class="ac-dropdown"
+              role="listbox"
+              hidden
+              data-autocomplete-target="dropdown">
+          </ul>
+        </div>
+
+        <%# Date range ──────────────────────────────────────────── %>
+        <div class="ev-search-form__field ev-search-form__field--daterange"
+             data-controller="date-range">
+
+          <label class="ev-search-form__label">Période</label>
+
+          <input type="hidden" name="date_range" value="<%= @date_range %>"
+                 data-date-range-target="rangeInput">
+
+          <div class="ev-daterange-btns" role="group" aria-label="Sélectionner une période">
+            <% [["all", "Tous"], ["today", "Aujourd'hui"], ["week", "Cette semaine"], ["month", "Ce mois"], ["custom", "Choisir dates"]].each do |val, lbl| %>
+              <button type="button"
+                      class="ev-daterange-btn <%= 'ev-daterange-btn--active' if @date_range == val %>"
+                      data-date-range-target="btn"
+                      data-value="<%= val %>"
+                      data-action="click->date-range#select">
+                <%= lbl %>
+              </button>
+            <% end %>
+          </div>
+
+          <div class="ev-daterange-custom"
+               data-date-range-target="customDates"
+               <%= 'hidden' unless @date_range == 'custom' %>>
+            <div class="ev-daterange-custom__row">
+              <div>
+                <label class="ev-search-form__label" for="date_from">Du</label>
+                <%= f.date_field :date_from, id: "date_from",
+                      value: @date_from, class: "ev-search-form__input" %>
+              </div>
+              <div>
+                <label class="ev-search-form__label" for="date_to">Au</label>
+                <%= f.date_field :date_to, id: "date_to",
+                      value: @date_to, class: "ev-search-form__input" %>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <%# Submit ──────────────────────────────────────────────── %>
+        <div class="ev-search-form__field ev-search-form__field--submit">
+          <label class="ev-search-form__label ev-search-form__label--hidden">Action</label>
+          <%= f.submit "Rechercher", class: "ev-btn ev-btn--primary ev-btn--search" %>
+        </div>
+
+      </div>
+
+      <%# Active-filter chips ──────────────────────────────────── %>
+      <%
+        date_chip_label = case @date_range
+          when "today"  then "Aujourd'hui"
+          when "week"   then "Cette semaine"
+          when "month"  then "Ce mois"
+          when "custom"
+            if @date_from.present? && @date_to.present?
+              "#{@date_from} → #{@date_to}"
+            elsif @date_from.present?
+              "Dès le #{@date_from}"
+            elsif @date_to.present?
+              "Jusqu'au #{@date_to}"
+            end
+          end
+        has_filters = @search_query.present? || date_chip_label.present? || @location.present?
+      %>
+      <% if has_filters %>
+        <div class="ev-search-form__active">
+          <span class="ev-search-form__active-label">Filtres actifs :</span>
+
+          <% if @search_query.present? %>
+            <span class="ev-chip">
+              <%= @search_query %>
+              <%= link_to "×", events_path(date_range: @date_range, date_from: @date_from, date_to: @date_to, location: @location, location_type: @location_type, location_label: @location_label), class: "ev-chip__remove" %>
+            </span>
+          <% end %>
+
+          <% if @location.present? %>
+            <span class="ev-chip ev-chip--location">
+              <svg viewBox="0 0 16 16" fill="currentColor" style="width:11px;height:11px;flex-shrink:0">
+                <path d="M8 1a5 5 0 00-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/>
+              </svg>
+              <%= @location_label.presence || @location %>
+              <%= link_to "×", events_path(q: @search_query, date_range: @date_range, date_from: @date_from, date_to: @date_to), class: "ev-chip__remove" %>
+            </span>
+          <% end %>
+
+          <% if date_chip_label.present? %>
+            <span class="ev-chip">
+              <%= date_chip_label %>
+              <%= link_to "×", events_path(q: @search_query, location: @location, location_type: @location_type, location_label: @location_label), class: "ev-chip__remove" %>
+            </span>
+          <% end %>
+
+          <%= link_to "Effacer tout", events_path, class: "ev-search-form__clear" %>
+        </div>
+      <% end %>
+
+    <% end %>
+  </div>
+</section>
+
+<%# ── Results ─────────────────────────────────────────────────────── %>
+<main class="ev-main ev-container">
+
+  <% if @events.nil? %>
+    <%# API not yet called — initial render %>
+  <% elsif @events.empty? %>
+    <div class="ev-empty">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="ev-empty__icon">
+        <rect x="8" y="12" width="48" height="44" rx="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 24h48" stroke="currentColor" stroke-width="2"/>
+        <path d="M20 8v8M44 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M22 38l20 0M32 32l0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h2 class="ev-empty__title">Aucun événement trouvé</h2>
+      <p class="ev-empty__text">Essayez de modifier vos critères de recherche ou <%= link_to "réinitialisez les filtres", events_path, class: "ev-link" %>.</p>
+    </div>
+
+  <% else %>
+    <% has_more = @events.length == ArtsDataService::PER_PAGE %>
+
+    <div data-controller="infinite-scroll"
+         data-infinite-scroll-has-more-value="<%= has_more %>">
+
+      <div class="ev-results-header">
+        <p class="ev-results-count">
+          <strong><%= @events.length %></strong> événement<%= "s" if @events.length != 1 %>
+        </p>
+      </div>
+
+      <div class="ev-grid" data-infinite-scroll-target="grid">
+        <%= render partial: "card", collection: @events, as: :event %>
+      </div>
+
+      <%# Loader spinner — hidden until a fetch is in flight %>
+      <div class="ev-loader" hidden data-infinite-scroll-target="loader" aria-label="Chargement…">
+        <span class="ev-loader__ring"></span>
+      </div>
+
+      <%# Sentinel — observed by IntersectionObserver; removed when no more pages %>
+      <% if has_more %>
+        <div class="ev-sentinel" data-infinite-scroll-target="sentinel" aria-hidden="true"></div>
+      <% end %>
+
+    </div>
+  <% end %>
+</main>
+
+<%# ── Footer ─────────────────────────────────────────────────────── %>
+<footer class="ev-footer">
+  <div class="ev-container ev-footer__inner">
+    <p>Données fournies par <a href="https://artsdata.ca" target="_blank" rel="noopener" class="ev-link">Artsdata.ca</a></p>
+    <p class="ev-footer__copy">&copy; <%= Date.today.year %> ArtBI</p>
+  </div>
+</footer>
+
+<%# ── Hamburger toggle script ─────────────────────────────────────── %>
+<script>
+  document.getElementById("evNavToggle").addEventListener("click", function () {
+    document.getElementById("evNavLinks").classList.toggle("ev-nav__links--open");
+    this.classList.toggle("ev-nav__toggle--open");
+  });
+</script>

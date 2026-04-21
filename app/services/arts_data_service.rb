@@ -1,0 +1,327 @@
+require "net/http"
+require "json"
+require "uri"
+
+class ArtsDataService
+  ENDPOINT = "https://query.artsdata.ca/query"
+  PER_PAGE  = 12
+
+  PROVINCE_NAMES = {
+    "AB" => "Alberta",
+    "BC" => "Colombie-Britannique",
+    "MB" => "Manitoba",
+    "NB" => "Nouveau-Brunswick",
+    "NL" => "Terre-Neuve-et-Labrador",
+    "NS" => "Nouvelle-Écosse",
+    "NT" => "Territoires du Nord-Ouest",
+    "NU" => "Nunavut",
+    "ON" => "Ontario",
+    "PE" => "Île-du-Prince-Édouard",
+    "QC" => "Québec",
+    "SK" => "Saskatchewan",
+    "YT" => "Yukon"
+  }.freeze
+
+  # Maps every known full-name variant (EN/FR) → 2-letter code for normalisation.
+  PROVINCE_CODES = PROVINCE_NAMES.invert.merge(
+    "Alberta"                      => "AB",
+    "British Columbia"             => "BC",
+    "Colombie-Britannique"         => "BC",
+    "Manitoba"                     => "MB",
+    "New Brunswick"                => "NB",
+    "Nouveau-Brunswick"            => "NB",
+    "Newfoundland"                 => "NL",
+    "Newfoundland and Labrador"    => "NL",
+    "Terre-Neuve-et-Labrador"      => "NL",
+    "Nova Scotia"                  => "NS",
+    "Nouvelle-Écosse"              => "NS",
+    "Northwest Territories"        => "NT",
+    "Territoires du Nord-Ouest"    => "NT",
+    "Nunavut"                      => "NU",
+    "Ontario"                      => "ON",
+    "Prince Edward Island"         => "PE",
+    "Île-du-Prince-Édouard"        => "PE",
+    "Quebec"                       => "QC",
+    "Québec"                       => "QC",
+    "Saskatchewan"                 => "SK",
+    "Yukon"                        => "YT"
+  ).freeze
+
+  def fetch_events(q: nil, date_from: nil, date_to: nil, location: nil, location_type: nil, page: 1)
+    from_date = date_from.present? ? "#{date_from}T00:00:00" : "#{Date.today}T00:00:00"
+    offset    = (page.to_i - 1) * PER_PAGE
+
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
+      SELECT ?event
+             (SAMPLE(?rawName)         AS ?name)
+             ?startDate
+             ?endDate
+             (SAMPLE(?rawImage)        AS ?image)
+             (SAMPLE(?rawUrl)          AS ?url)
+             (SAMPLE(?rawLocName)      AS ?locationName)
+             (SAMPLE(?rawCity)         AS ?city)
+             (SAMPLE(?rawProvince)     AS ?province)
+             (SAMPLE(?rawStatus)       AS ?status)
+             (SAMPLE(?rawType)         AS ?type)
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+        ?event a schema:Event .
+        ?event schema:name ?rawName .
+        ?event schema:startDate ?startDate .
+        FILTER(datatype(?startDate) = xsd:dateTime)
+        FILTER(?startDate >= "#{from_date}"^^xsd:dateTime)
+        #{keyword_clause(q)}
+        #{date_to_clause(date_to)}
+        OPTIONAL { ?event schema:endDate ?endDate }
+        OPTIONAL { ?event schema:image ?imgNode . ?imgNode schema:url ?rawImage }
+        OPTIONAL { ?event schema:url ?rawUrl }
+        OPTIONAL { ?event schema:eventStatus ?rawStatus }
+        OPTIONAL { ?event schema:additionalType ?rawType }
+        OPTIONAL {
+          ?event schema:location ?loc .
+          OPTIONAL { ?loc schema:name ?rawLocName }
+          OPTIONAL {
+            ?loc schema:address ?addr .
+            OPTIONAL { ?addr schema:addressLocality ?rawCity }
+            OPTIONAL { ?addr schema:addressRegion    ?rawProvince }
+          }
+        }
+        #{location_clause(location, location_type)}
+      }
+      GROUP BY ?event ?startDate ?endDate
+      ORDER BY ?startDate
+      LIMIT #{PER_PAGE}
+      OFFSET #{offset}
+    SPARQL
+
+    execute_events(sparql)
+  end
+
+  # Returns filtered autocomplete suggestions as an array of hashes:
+  #   { label:, type: "city"|"province", value:, province_code: }
+  def fetch_locations(q: nil)
+    all = cached_locations
+    return all.first(12) if q.blank?
+
+    q_down = q.downcase.strip
+    matches = all.select { |l| l[:label].downcase.include?(q_down) }
+    matches.sort_by { |l|
+      idx = l[:label].downcase.index(q_down) || 999
+      [ idx, l[:label] ]
+    }.first(12)
+  end
+
+  private
+
+  # ── Query builders ──────────────────────────────────────────────
+
+  def keyword_clause(q)
+    return "" unless q.present?
+    safe = sanitize_sparql(q)
+    return "" if safe.blank?
+    "FILTER(CONTAINS(LCASE(STR(?rawName)), LCASE(\"#{safe}\")))"
+  end
+
+  def date_to_clause(date_to)
+    return "" unless date_to.present?
+    "FILTER(?startDate <= \"#{date_to}T23:59:59\"^^xsd:dateTime)"
+  end
+
+  def location_clause(location, location_type)
+    return "" unless location.present?
+    safe = sanitize_sparql(location)
+    return "" if safe.blank?
+
+    if location_type == "province"
+      # Match the 2-letter code plus every full-name variant stored in the graph
+      variants = province_variants(safe).map { |v| "\"#{sanitize_sparql(v)}\"" }.join(", ")
+      "FILTER(BOUND(?rawProvince) && STR(?rawProvince) IN (#{variants}))"
+    else
+      "FILTER(BOUND(?rawCity) && LCASE(STR(?rawCity)) = LCASE(\"#{safe}\"))"
+    end
+  end
+
+  def sanitize_sparql(str)
+    str.gsub(/["'\\<>{}|^`]/, "").strip
+  end
+
+  # Returns all raw strings the graph might use for a given province code.
+  def province_variants(code)
+    variants = [ code ]
+    variants << PROVINCE_NAMES[code] if PROVINCE_NAMES[code]
+    PROVINCE_CODES.each { |full, c| variants << full if c == code }
+    variants.uniq
+  end
+
+  # ── HTTP / parsing ───────────────────────────────────────────────
+
+  def execute_events(sparql)
+    data = sparql_request(sparql)
+    return [] unless data
+    parse_events(data)
+  rescue => e
+    Rails.logger.error("ArtsDataService#fetch_events error: #{e.message}")
+    []
+  end
+
+  def sparql_request(sparql)
+    uri = URI(ENDPOINT)
+    uri.query = URI.encode_www_form(query: sparql, format: "json")
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl      = true
+    http.open_timeout = 10
+    http.read_timeout = 30
+
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request["Accept"] = "application/sparql-results+json"
+
+    response = http.request(request)
+    unless response.is_a?(Net::HTTPSuccess)
+      Rails.logger.error("ArtsData HTTP #{response.code}: #{response.body.truncate(200)}")
+      return nil
+    end
+
+    JSON.parse(response.body)
+  end
+
+  def parse_events(data)
+    labels = cached_type_labels
+    (data.dig("results", "bindings") || []).map do |b|
+      type_uri = b.dig("type", "value")
+      {
+        uri:           b.dig("event",        "value"),
+        name:          b.dig("name",         "value"),
+        start_date:    parse_date(b.dig("startDate",    "value")),
+        end_date:      parse_date(b.dig("endDate",      "value")),
+        image:         b.dig("image",        "value"),
+        url:           b.dig("url",          "value"),
+        location_name: b.dig("locationName", "value"),
+        city:          b.dig("city",         "value"),
+        province:      b.dig("province",     "value"),
+        status:        uri_local(b.dig("status", "value")),
+        type:          labels[type_uri]
+      }
+    end
+  end
+
+  def parse_date(str)
+    return nil unless str.present?
+    DateTime.parse(str)
+  rescue ArgumentError
+    nil
+  end
+
+  def uri_local(uri)
+    uri&.split("/")&.last
+  end
+
+  def humanize_type(uri)
+    return nil unless uri.present?
+    uri_local(uri)
+      .gsub(/([A-Z])/, ' \1')
+      .strip
+      .gsub(" Event", "")
+      .presence
+  end
+
+  # ── Type-label cache ─────────────────────────────────────────────
+
+  def cached_type_labels
+    Rails.cache.fetch("artsdata_type_labels_v1", expires_in: 12.hours) do
+      fetch_all_type_labels
+    end
+  end
+
+  def fetch_all_type_labels
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      PREFIX skos:   <http://www.w3.org/2004/02/skos/core#>
+      SELECT DISTINCT ?type ?label
+      WHERE {
+        ?event a schema:Event .
+        ?event schema:additionalType ?type .
+        ?type skos:prefLabel ?label .
+        FILTER(LANG(?label) = "fr" || LANG(?label) = "en")
+      }
+    SPARQL
+
+    data = sparql_request(sparql)
+    return {} unless data
+
+    # Build map: type_uri => label, preferring French over English
+    fr = {}
+    en = {}
+    (data.dig("results", "bindings") || []).each do |b|
+      uri   = b.dig("type",  "value")
+      label = b.dig("label", "value")
+      lang  = b.dig("label", "xml:lang")
+      next unless uri.present? && label.present?
+      lang == "fr" ? fr[uri] = label : en[uri] = label
+    end
+
+    en.merge(fr)   # French wins when both exist
+  end
+
+  # ── Locations cache ──────────────────────────────────────────────
+
+  def cached_locations
+    Rails.cache.fetch("artsdata_locations_v1", expires_in: 6.hours) do
+      fetch_all_locations
+    end
+  end
+
+  def fetch_all_locations
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      SELECT DISTINCT ?city ?province
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+        ?event a schema:Event .
+        ?event schema:location ?loc .
+        ?loc schema:address ?addr .
+        OPTIONAL { ?addr schema:addressLocality ?city }
+        OPTIONAL { ?addr schema:addressRegion    ?province }
+        FILTER(BOUND(?city) || BOUND(?province))
+      }
+      LIMIT 2000
+    SPARQL
+
+    data = sparql_request(sparql)
+    return [] unless data
+
+    city_province = {}   # city => province_code (normalised)
+    provinces     = {}   # normalised code => true
+
+    (data.dig("results", "bindings") || []).each do |b|
+      city = b.dig("city",     "value")&.strip.presence
+      prov = b.dig("province", "value")&.strip.presence
+
+      if prov
+        prov = PROVINCE_CODES[prov] || prov   # normalise to 2-letter code
+        provinces[prov] = true
+      end
+
+      city_province[city] ||= prov if city
+    end
+
+    result = []
+
+    # Provinces first (mapped to full names where possible)
+    provinces.keys.sort_by { |c| PROVINCE_NAMES[c] || c }.each do |code|
+      label = PROVINCE_NAMES[code] || code
+      result << { label: label, type: "province", value: code }
+    end
+
+    # Cities sorted alphabetically
+    city_province.keys.sort.each do |city|
+      prov_code  = city_province[city]
+      prov_label = PROVINCE_NAMES[prov_code] || prov_code
+      result << { label: city, type: "city", value: city, province: prov_label }
+    end
+
+    result
+  end
+end
