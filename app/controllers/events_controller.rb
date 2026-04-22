@@ -1,8 +1,7 @@
 class EventsController < ApplicationController
   DATE_RANGE_LABELS = {
     "today" => "Aujourd'hui",
-    "week"  => "Cette semaine",
-    "month" => "Ce mois"
+    "week"  => "Cette semaine"
   }.freeze
 
   def index
@@ -45,7 +44,6 @@ class EventsController < ApplicationController
     case @date_range
     when "today"  then [ today.to_s,              today.to_s ]
     when "week"   then [ today.to_s,              today.end_of_week.to_s ]
-    when "month"  then [ today.to_s,              today.end_of_month.to_s ]
     when "custom" then [ @date_from,              @date_to ]
     else               [ nil,                     nil ]   # all upcoming
     end

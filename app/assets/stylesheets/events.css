@@ -25,6 +25,11 @@
 }
 
 /* ── Base reset for page ───────────────────────────────── */
+body {
+  background: var(--ev-bg);
+  margin: 0;
+}
+
 .ev-nav,
 .ev-hero,
 .ev-search-section,
@@ -476,27 +481,32 @@
   pointer-events: none;
 }
 
+.ev-btn__spinner {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ev-spin .6s linear infinite;
+  flex-shrink: 0;
+}
+
+.ev-btn--loading {
+  pointer-events: none;
+  background: var(--ev-primary-light) !important;
+  border-color: var(--ev-primary-light) !important;
+  transform: none !important;
+}
+
+.ev-btn--loading .ev-btn__label { display: none; }
+.ev-btn--loading .ev-btn__spinner { display: block; }
+
 /* ── Main content ───────────────────────────────────────── */
 .ev-main {
   background: var(--ev-bg);
   padding: 2rem 1.5rem 4rem;
   min-height: 50vh;
-}
-
-/* Results count */
-.ev-results-header {
-  margin-bottom: 1.5rem;
-}
-
-.ev-results-count {
-  font-size: .9rem;
-  color: var(--ev-text-muted);
-  margin: 0;
-}
-
-.ev-results-count strong {
-  color: var(--ev-text);
-  font-weight: 700;
 }
 
 /* ── Events grid ────────────────────────────────────────── */
