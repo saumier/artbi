@@ -36,6 +36,17 @@
       </div>
     <% end %>
 
+    <% t = event[:start_time] %>
+    <% if t && !(t.hour == 0 && t.min == 0) %>
+      <p class="ev-card__time">
+        <svg class="ev-card__time-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="6.5"/>
+          <path d="M8 4.5v3.75l2.5 1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <%= t.strftime("%-H:%M") %><span class="ev-card__tz"><%= t.zone %></span>
+      </p>
+    <% end %>
+
     <h3 class="ev-card__title"><%= event[:name] %></h3>
 
     <% if event[:location_name].present? || event[:city].present? %>

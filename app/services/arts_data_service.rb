@@ -6,6 +6,22 @@ class ArtsDataService
   ENDPOINT = "https://query.artsdata.ca/query"
   PER_PAGE  = 12
 
+  PROVINCE_TIMEZONES = {
+    "AB" => "Mountain Time (US & Canada)",
+    "BC" => "Pacific Time (US & Canada)",
+    "MB" => "Central Time (US & Canada)",
+    "NB" => "Atlantic Time (Canada)",
+    "NL" => "Newfoundland",
+    "NS" => "Atlantic Time (Canada)",
+    "NT" => "Mountain Time (US & Canada)",
+    "NU" => "Eastern Time (US & Canada)",
+    "ON" => "Eastern Time (US & Canada)",
+    "PE" => "Atlantic Time (Canada)",
+    "QC" => "Eastern Time (US & Canada)",
+    "SK" => "Saskatchewan",
+    "YT" => "Pacific Time (US & Canada)"
+  }.freeze
+
   PROVINCE_NAMES = {
     "AB" => "Alberta",
     "BC" => "Colombie-Britannique",
@@ -190,17 +206,21 @@ class ArtsDataService
   def parse_events(data)
     labels = cached_type_labels
     (data.dig("results", "bindings") || []).map do |b|
-      type_uri = b.dig("type", "value")
+      type_uri     = b.dig("type", "value")
+      province_raw = b.dig("province", "value")
+      province     = PROVINCE_CODES[province_raw] || province_raw
+      start_raw    = b.dig("startDate", "value")
       {
         uri:           b.dig("event",        "value"),
         name:          b.dig("name",         "value"),
-        start_date:    parse_date(b.dig("startDate",    "value")),
-        end_date:      parse_date(b.dig("endDate",      "value")),
+        start_date:    parse_date(start_raw),
+        start_time:    parse_local_time(start_raw, province),
+        end_date:      parse_date(b.dig("endDate", "value")),
         image:         b.dig("image",        "value"),
         url:           b.dig("url",          "value"),
         location_name: b.dig("locationName", "value"),
         city:          b.dig("city",         "value"),
-        province:      b.dig("province",     "value"),
+        province:      province,
         status:        uri_local(b.dig("status", "value")),
         type:          labels[type_uri]
       }
@@ -210,6 +230,17 @@ class ArtsDataService
   def parse_date(str)
     return nil unless str.present?
     DateTime.parse(str)
+  rescue ArgumentError
+    nil
+  end
+
+  def parse_local_time(raw_str, province_code)
+    return nil unless raw_str.present?
+    tz_name = PROVINCE_TIMEZONES[province_code]
+    return nil unless tz_name
+    tz = ActiveSupport::TimeZone[tz_name]
+    has_offset = raw_str.end_with?("Z") || raw_str.match?(/[+-]\d{2}:?\d{2}$/)
+    has_offset ? DateTime.parse(raw_str).in_time_zone(tz) : tz.parse(raw_str)
   rescue ArgumentError
     nil
   end

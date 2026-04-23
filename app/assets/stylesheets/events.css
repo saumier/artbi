@@ -647,6 +647,29 @@ body {
   overflow: hidden;
 }
 
+/* Time */
+.ev-card__time {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--ev-text-muted);
+  margin: .2rem 0 .5rem;
+}
+
+.ev-card__time-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.ev-card__tz {
+  font-size: .72rem;
+  opacity: .65;
+  margin-left: .1rem;
+}
+
 /* Venue */
 .ev-card__venue {
   display: flex;
