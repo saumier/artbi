@@ -9,7 +9,13 @@ export default class extends Controller {
       entries => this._onIntersect(entries),
       { rootMargin: "300px" }   // start fetching 300px before sentinel enters viewport
     )
-    this._observer.observe(this.sentinelTarget)
+    if (this.hasSentinelTarget) {
+      this._observer.observe(this.sentinelTarget)
+      // On Turbo Drive navigation the observer fires before layout is finalised and
+      // can miss a sentinel that is already in view.  A rAF fires after the first
+      // paint so we always get an accurate visibility check.
+      requestAnimationFrame(() => this._checkSentinelVisible())
+    }
   }
 
   disconnect() {
@@ -21,6 +27,14 @@ export default class extends Controller {
     if (!entries[0].isIntersecting) return
     if (!this.hasMoreValue)         return
     this._loadNext()
+  }
+
+  _checkSentinelVisible() {
+    if (!this.hasSentinelTarget || !this.hasMoreValue) return
+    const rect = this.sentinelTarget.getBoundingClientRect()
+    if (rect.top < window.innerHeight + 300) {
+      this._loadNext()
+    }
   }
 
   async _loadNext() {
@@ -48,6 +62,8 @@ export default class extends Controller {
       const count = (html.match(/class="ev-card"/g) || []).length
       if (count >= 12) {
         this.hasMoreValue = true
+        // Sentinel may still be in view after new cards are inserted; check again.
+        requestAnimationFrame(() => this._checkSentinelVisible())
       } else {
         this._removeSentinel()
       }
