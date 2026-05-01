@@ -80,7 +80,7 @@ class ArtsDataService
              (SAMPLE(?rawCity)         AS ?city)
              (SAMPLE(?rawProvince)     AS ?province)
              (SAMPLE(?rawStatus)       AS ?status)
-             (SAMPLE(?rawType)         AS ?type)
+             (GROUP_CONCAT(DISTINCT STR(?anyType); SEPARATOR="|") AS ?types)
       FROM <http://kg.artsdata.ca/core>
       WHERE {
         ?event a schema:Event .
@@ -94,7 +94,7 @@ class ArtsDataService
         OPTIONAL { ?event schema:image ?imgNode . ?imgNode schema:url ?rawImage }
         OPTIONAL { ?event schema:url ?rawUrl }
         OPTIONAL { ?event schema:eventStatus ?rawStatus }
-        OPTIONAL { ?event schema:additionalType ?rawType }
+        OPTIONAL { ?event schema:additionalType ?anyType }
         OPTIONAL {
           ?event schema:location ?loc .
           OPTIONAL { ?loc schema:name ?rawLocName }
@@ -233,9 +233,11 @@ class ArtsDataService
   end
 
   def parse_events(data)
-    labels = cached_type_labels
+    labels   = cached_type_labels
+    taxonomy = cached_type_taxonomy
     (data.dig("results", "bindings") || []).map do |b|
-      type_uri     = b.dig("type", "value")
+      type_uris    = b.dig("types", "value").to_s.split("|").select(&:present?)
+      best_uri     = most_specific_type(type_uris, taxonomy)
       province_raw = b.dig("province", "value")
       province     = PROVINCE_CODES[province_raw] || province_raw
       start_raw    = b.dig("startDate", "value")
@@ -251,7 +253,7 @@ class ArtsDataService
         city:          b.dig("city",         "value"),
         province:      province,
         status:        uri_local(b.dig("status", "value")),
-        type:          labels[type_uri]
+        type:          labels[best_uri]
       }
     end
   end
@@ -401,6 +403,64 @@ class ArtsDataService
     end
 
     best.transform_values { |v| v[:label] }
+  end
+
+  # ── Type taxonomy cache ──────────────────────────────────────────
+
+  def cached_type_taxonomy
+    Rails.cache.fetch("artsdata_type_taxonomy_v1", expires_in: 12.hours) do
+      fetch_type_taxonomy
+    end
+  end
+
+  def fetch_type_taxonomy
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      PREFIX skos:   <http://www.w3.org/2004/02/skos/core#>
+      SELECT DISTINCT ?type ?broader
+      WHERE {
+        ?event a schema:Event .
+        ?event schema:additionalType ?type .
+        ?type skos:broader ?broader .
+      }
+    SPARQL
+
+    data = sparql_request(sparql)
+    return {} unless data
+
+    map = {}
+    (data.dig("results", "bindings") || []).each do |b|
+      type    = b.dig("type",    "value")
+      broader = b.dig("broader", "value")
+      next unless type.present? && broader.present?
+      (map[type] ||= []) << broader
+    end
+    map
+  end
+
+  # Returns the most specific URI from a list, using skos:broader ancestry.
+  # A type is dropped if it is an ancestor of any other type in the set.
+  # Among equally specific candidates, artsdata.ca URIs are preferred.
+  def most_specific_type(type_uris, broader_map)
+    return type_uris.first if type_uris.size <= 1
+
+    ancestors_of = type_uris.index_with { |t| type_ancestors(t, broader_map) }
+
+    candidates = type_uris.reject do |t|
+      type_uris.any? { |other| other != t && ancestors_of[other].include?(t) }
+    end
+    candidates = type_uris if candidates.empty?
+
+    candidates.find { |t| t.include?("artsdata.ca") } || candidates.first
+  end
+
+  def type_ancestors(type_uri, broader_map, visited = Set.new)
+    (broader_map[type_uri] || []).each do |parent|
+      next if visited.include?(parent)
+      visited.add(parent)
+      type_ancestors(parent, broader_map, visited)
+    end
+    visited
   end
 
   # ── Locations cache ──────────────────────────────────────────────
