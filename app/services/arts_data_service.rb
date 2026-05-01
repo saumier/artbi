@@ -112,8 +112,6 @@ class ArtsDataService
       OFFSET #{offset}
     SPARQL
 
-    puts "Fetching events with SPARQL:\n#{sparql}"
-
     execute_events(sparql)
   end
 
@@ -138,8 +136,6 @@ class ArtsDataService
       }
       LIMIT 50
     SPARQL
-
-    puts "Fetching details for #{uri} with SPARQL:\n#{sparql}"
 
     data = sparql_request(sparql)
     return nil unless data
@@ -210,7 +206,6 @@ class ArtsDataService
   def execute_events(sparql)
     data = sparql_request(sparql)
     return [] unless data
-    puts "Received events data: #{data.dig("results", "bindings")}"
     parse_events(data)
   rescue => e
     Rails.logger.error("ArtsDataService#fetch_events error: #{e.message}")
@@ -234,12 +229,10 @@ class ArtsDataService
       Rails.logger.error("ArtsData HTTP #{response.code}: #{response.body.truncate(200)}")
       return nil
     end
-    puts "Received response: #{response.body}"
     JSON.parse(response.body)
   end
 
   def parse_events(data)
-    puts "Parsing events data: #{data.dig("results", "bindings")}"
     labels = cached_type_labels
     (data.dig("results", "bindings") || []).map do |b|
       type_uri     = b.dig("type", "value")
@@ -369,7 +362,7 @@ class ArtsDataService
   # ── Type-label cache ─────────────────────────────────────────────
 
   def cached_type_labels
-    Rails.cache.fetch("artsdata_type_labels_v1", expires_in: 12.hours) do
+    Rails.cache.fetch("artsdata_type_labels_v3", expires_in: 12.hours) do
       fetch_all_type_labels
     end
   end
@@ -382,26 +375,32 @@ class ArtsDataService
       WHERE {
         ?event a schema:Event .
         ?event schema:additionalType ?type .
-        ?type skos:prefLabel ?label .
-        FILTER(LANG(?label) = "fr" || LANG(?label) = "en")
+        { ?type schema:name ?label }
+        UNION
+        { ?type skos:prefLabel ?label }
       }
     SPARQL
 
     data = sparql_request(sparql)
     return {} unless data
 
-    # Build map: type_uri => label, preferring French over English
-    fr = {}
-    en = {}
+    # Build map: type_uri => { label:, lang: }, preferring fr > en > any other
+    best = {}
     (data.dig("results", "bindings") || []).each do |b|
       uri   = b.dig("type",  "value")
       label = b.dig("label", "value")
-      lang  = b.dig("label", "xml:lang")
+      lang  = b.dig("label", "xml:lang").to_s
       next unless uri.present? && label.present?
-      lang == "fr" ? fr[uri] = label : en[uri] = label
+
+      current = best[uri]
+      if current.nil? ||
+         (lang.start_with?("fr")) ||
+         (lang.start_with?("en") && !current[:lang].start_with?("fr"))
+        best[uri] = { label: label, lang: lang }
+      end
     end
 
-    en.merge(fr)   # French wins when both exist
+    best.transform_values { |v| v[:label] }
   end
 
   # ── Locations cache ──────────────────────────────────────────────

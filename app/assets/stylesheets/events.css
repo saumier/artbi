@@ -1123,7 +1123,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: .4rem;
-  margin-bottom: 1.1rem;
+  margin-bottom: .6rem;
+  background: var(--ev-bg);
+  border-radius: var(--ev-radius-sm);
+  padding: .65rem .85rem;
 }
 
 .ev-modal__meta-label {
