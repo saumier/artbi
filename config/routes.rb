@@ -10,6 +10,7 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   get "evenements/locations", to: "events#locations", as: :event_locations
+  get "evenements/details",   to: "events#details",   as: :event_details
   get "evenements",           to: "events#index",     as: :events
 
   # Defines the root path route ("/")

@@ -73,17 +73,23 @@
     <% end %>
 
     <div class="ev-card__footer">
-      <% if event[:url].present? %>
-        <a href="<%= event[:url] %>"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="ev-btn ev-btn--sm ev-btn--ghost">
-          Détails
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M6 3.5H3.5A1.5 1.5 0 002 5v7.5A1.5 1.5 0 003.5 14H11a1.5 1.5 0 001.5-1.5V10M9 2h5m0 0v5m0-5L8 9"/>
-          </svg>
-        </a>
-      <% end %>
+      <%
+        end_for_modal = event[:end_date] && event[:end_date].to_date != event[:start_date]&.to_date ? modal_date_str(event[:end_date]) : ""
+      %>
+      <button class="ev-btn ev-btn--sm ev-btn--ghost"
+              data-action="click->event-modal#open"
+              data-event-modal-name-param="<%= event[:name] %>"
+              data-event-modal-url-param="<%= event[:url] %>"
+              data-event-modal-image-param="<%= event[:image] %>"
+              data-event-modal-uri-param="<%= event[:uri] %>"
+              data-event-modal-start-date-param="<%= modal_date_str(event[:start_date]) %>"
+              data-event-modal-start-time-param="<%= modal_time_str(event[:start_time]) %>"
+              data-event-modal-end-date-param="<%= end_for_modal %>"
+              data-event-modal-location-name-param="<%= event[:location_name] %>"
+              data-event-modal-city-param="<%= event[:city] %>"
+              data-event-modal-province-param="<%= event[:province] %>">
+        Détails
+      </button>
     </div>
   </div>
 

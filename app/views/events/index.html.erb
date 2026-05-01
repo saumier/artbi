@@ -191,7 +191,9 @@
 </section>
 
 <%# ── Results ─────────────────────────────────────────────────────── %>
-<main class="ev-main ev-container">
+<main class="ev-main ev-container"
+      data-controller="event-modal"
+      data-event-modal-details-url-value="<%= event_details_path %>">
 
   <% if @events.nil? %>
     <%# API not yet called — initial render %>
@@ -229,6 +231,32 @@
 
     </div>
   <% end %>
+
+  <%# ── Event details modal ──────────────────────────────────────── %>
+  <dialog class="ev-modal"
+          data-event-modal-target="dialog"
+          data-action="click->event-modal#backdropClick">
+    <div class="ev-modal__box">
+      <header class="ev-modal__header">
+        <h2 class="ev-modal__title" data-event-modal-target="title"></h2>
+        <button class="ev-modal__close"
+                data-action="click->event-modal#close"
+                aria-label="Fermer">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+      <div class="ev-modal__body">
+        <div class="ev-loader" hidden data-event-modal-target="loader" aria-label="Chargement…">
+          <span class="ev-loader__ring"></span>
+        </div>
+        <div data-event-modal-target="content"></div>
+      </div>
+      <div class="ev-modal__footer" data-event-modal-target="footer" hidden></div>
+    </div>
+  </dialog>
+
 </main>
 
 <%# ── Footer ─────────────────────────────────────────────────────── %>

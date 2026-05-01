@@ -112,7 +112,41 @@ class ArtsDataService
       OFFSET #{offset}
     SPARQL
 
+    puts "Fetching events with SPARQL:\n#{sparql}"
+
     execute_events(sparql)
+  end
+
+  def fetch_event_details(uri:)
+    return nil if uri.blank?
+
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      SELECT ?description ?image ?sameAs
+             ?performer ?performerName ?org ?organizerName ?keyword ?type ?status
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+       values ?event { <#{uri}> }
+        OPTIONAL { ?event schema:description ?description }
+        OPTIONAL { ?event schema:image ?imgNode . ?imgNode schema:url ?image }
+        OPTIONAL { ?event schema:sameAs ?sameAs }
+        OPTIONAL { ?event schema:performer ?performer . ?performer schema:name ?performerName }
+        OPTIONAL { ?event schema:organizer ?org . ?org schema:name ?organizerName }
+        OPTIONAL { ?event schema:keywords ?keyword }
+        OPTIONAL { ?event schema:additionalType ?type }
+        OPTIONAL { ?event schema:eventStatus ?status }
+      }
+      LIMIT 50
+    SPARQL
+
+    puts "Fetching details for #{uri} with SPARQL:\n#{sparql}"
+
+    data = sparql_request(sparql)
+    return nil unless data
+    parse_event_details(data)
+  rescue => e
+    Rails.logger.error("ArtsDataService#fetch_event_details error: #{e.message}")
+    nil
   end
 
   # Returns filtered autocomplete suggestions as an array of hashes:
@@ -176,6 +210,7 @@ class ArtsDataService
   def execute_events(sparql)
     data = sparql_request(sparql)
     return [] unless data
+    puts "Received events data: #{data.dig("results", "bindings")}"
     parse_events(data)
   rescue => e
     Rails.logger.error("ArtsDataService#fetch_events error: #{e.message}")
@@ -199,11 +234,12 @@ class ArtsDataService
       Rails.logger.error("ArtsData HTTP #{response.code}: #{response.body.truncate(200)}")
       return nil
     end
-
+    puts "Received response: #{response.body}"
     JSON.parse(response.body)
   end
 
   def parse_events(data)
+    puts "Parsing events data: #{data.dig("results", "bindings")}"
     labels = cached_type_labels
     (data.dig("results", "bindings") || []).map do |b|
       type_uri     = b.dig("type", "value")
@@ -256,6 +292,78 @@ class ArtsDataService
       .strip
       .gsub(" Event", "")
       .presence
+  end
+
+  def parse_event_details(data)
+    labels         = cached_type_labels
+    bindings       = data.dig("results", "bindings") || []
+    return nil if bindings.empty?
+
+    result = {
+      description: nil,
+      image:       nil,
+      url:         nil,
+      same_as:     [],
+      performers:  [],
+      organizers:  [],
+      keywords:    [],
+      types:       [],
+      status:      nil
+    }
+
+    performers_by_entity = {}
+    organizers_by_entity = {}
+
+    bindings.each do |b|
+      result[:description] ||= b.dig("description", "value")
+      result[:image]       ||= b.dig("image",       "value")
+      result[:url]         ||= b.dig("url",         "value")
+      result[:status]      ||= uri_local(b.dig("status", "value"))
+
+      add_unique(result[:same_as],  b.dig("sameAs",   "value"))
+      add_unique(result[:keywords], b.dig("keyword",  "value"))
+
+      collect_lang_name(performers_by_entity,
+                        b.dig("performer",     "value"),
+                        b.dig("performerName", "value"),
+                        b.dig("performerName", "xml:lang").to_s)
+
+      collect_lang_name(organizers_by_entity,
+                        b.dig("org",           "value"),
+                        b.dig("organizerName", "value"),
+                        b.dig("organizerName", "xml:lang").to_s)
+
+      type_uri = b.dig("type", "value")
+      if type_uri.present?
+        label = labels[type_uri] || humanize_type(type_uri)
+        add_unique(result[:types], label)
+      end
+    end
+
+    result[:performers] = preferred_lang_names(performers_by_entity)
+    result[:organizers] = preferred_lang_names(organizers_by_entity)
+    result
+  end
+
+  def collect_lang_name(hash, entity_key, name, lang)
+    return unless (entity_key || name).present? && name.present?
+    key = entity_key.presence || name
+    hash[key] ||= {}
+    if lang.start_with?("fr")
+      hash[key][:fr] = name
+    elsif lang.start_with?("en")
+      hash[key][:en] ||= name
+    else
+      hash[key][:other] ||= name
+    end
+  end
+
+  def preferred_lang_names(hash)
+    hash.values.filter_map { |names| names[:fr] || names[:en] || names[:other] }.uniq
+  end
+
+  def add_unique(arr, value)
+    arr << value if value.present? && !arr.include?(value)
   end
 
   # ── Type-label cache ─────────────────────────────────────────────
