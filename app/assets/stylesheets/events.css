@@ -1227,7 +1227,7 @@ body {
 /* Subtle Artsdata button */
 .ev-btn--artsdata {
   background: none;
-  border: 1.5px solid var(--ev-border);
+  border: 1.5px solid transparent;
   color: var(--ev-text-muted);
   padding: .28rem .7rem;
   font-size: .75rem;
