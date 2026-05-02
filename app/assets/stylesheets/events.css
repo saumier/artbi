@@ -1011,6 +1011,9 @@ body {
   list-style: none;
 }
 
+/* SVGs inside chips must not shrink in flex containers */
+.ev-chip svg { flex-shrink: 0; }
+
 /* Location chip variant */
 .ev-chip--location {
   display: inline-flex;
@@ -1139,6 +1142,10 @@ body {
 .ev-modal__image-wrap:hover .ev-modal__image {
   object-fit: contain;
 }
+
+/* Card-style date/time reused inside the modal — reset card margins */
+.ev-modal__detail-body .ev-card__date-block { margin-bottom: 0; }
+.ev-modal__detail-body .ev-card__time      { margin: .3rem 0 0; }
 
 /* Detail content */
 .ev-modal__detail-body {

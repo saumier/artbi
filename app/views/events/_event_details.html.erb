@@ -14,7 +14,7 @@
     <div class="ev-modal__meta-row">
       <span class="ev-modal__meta-label">Date</span>
       <% s_day, s_month, s_year = details[:start_date].split(" ") %>
-      <div class="ev-card__date-block" style="margin-bottom:0">
+      <div class="ev-card__date-block">
         <time class="ev-card__date">
           <span class="ev-card__date-day"><%= s_day %></span>
           <span class="ev-card__date-month"><%= s_month %></span>
@@ -30,7 +30,7 @@
         <% end %>
       </div>
       <% if details[:start_time].present? %>
-        <p class="ev-card__time" style="margin:.3rem 0 0">
+        <p class="ev-card__time">
           <svg class="ev-card__time-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="8" cy="8" r="6.5"/>
             <path d="M8 4.5v3.75l2.5 1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -72,7 +72,7 @@
     <div class="ev-modal__meta-row">
       <span class="ev-modal__meta-label">Description</span>
       <div class="ev-modal__description ev-modal__description--collapsed">
-        <%= raw details[:description] %>
+        <%= sanitize details[:description] %>
       </div>
       <button class="ev-modal__read-more"
               data-action="click->event-modal#expandDescription">

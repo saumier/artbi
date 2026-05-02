@@ -87,6 +87,9 @@
   align-items: flex-start;
 }
 
+/* Artsdata button sits below image — cancel the base margin-left: auto */
+.en-entity__image-col .ev-btn--artsdata { margin-left: 0; }
+
 /* Column that stacks the image above the Artsdata button */
 .en-entity__image-col {
   display: flex;
@@ -148,6 +151,8 @@
   margin: 0 0 .75rem;
   line-height: 1.2;
 }
+
+.en-entity__address svg { flex-shrink: 0; color: var(--ev-primary-light); }
 
 .en-entity__address {
   font-family: var(--ev-font);
@@ -251,6 +256,7 @@
 }
 
 .en-event-row__date .ev-card__date-block { margin-bottom: .3rem; }
+.en-event-row__date .ev-card__time       { margin: 0; }
 
 .en-event-row__info {
   padding: .7rem .75rem;
