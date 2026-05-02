@@ -82,6 +82,7 @@ class ArtsDataService
              (SAMPLE(?rawProvince)     AS ?province)
              (SAMPLE(?rawStatus)       AS ?status)
              (GROUP_CONCAT(DISTINCT STR(?anyType); SEPARATOR="|") AS ?types)
+             (SAMPLE(?loc)             AS ?locationUri)
       FROM <http://kg.artsdata.ca/core>
       WHERE {
         ?event a schema:Event .
@@ -145,6 +146,128 @@ class ArtsDataService
   rescue => e
     Rails.logger.error("ArtsDataService#fetch_event_details error: #{e.message}")
     nil
+  end
+
+  PER_PAGE_ENTITIES = 24
+
+  # ── Entity listings ──────────────────────────────────────────────
+
+  def fetch_performers(q: nil, page: 1)
+    fetch_entity_listing(q: q, page: page,
+                         predicates: %w[schema:performer schema:contributor])
+  end
+
+  def fetch_presenters(q: nil, page: 1)
+    fetch_entity_listing(q: q, page: page,
+                         predicates: %w[schema:organizer])
+  end
+
+  def fetch_venues(q: nil, page: 1)
+    fetch_entity_listing(q: q, page: page,
+                         predicates: %w[schema:location], is_venue: true)
+  end
+
+  # ── Entity detail ────────────────────────────────────────────────
+
+  def fetch_entity_details(uri:)
+    return nil if uri.blank?
+    safe = sanitize_sparql(uri)
+
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      SELECT ?name ?imgObj ?imgLit ?description ?url ?sameAs ?street ?city ?province ?postalCode
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+        VALUES ?entity { <#{safe}> }
+        OPTIONAL { ?entity schema:name        ?name        }
+        OPTIONAL { ?entity schema:image ?imgNode . ?imgNode schema:url ?imgObj }
+        OPTIONAL { ?entity schema:image ?imgLit . FILTER(isLiteral(?imgLit)) }
+        OPTIONAL { ?entity schema:description ?description }
+        OPTIONAL { ?entity schema:url         ?url         }
+        OPTIONAL { ?entity schema:sameAs      ?sameAs      }
+        OPTIONAL {
+          ?entity schema:address ?addr .
+          OPTIONAL { ?addr schema:streetAddress   ?street     }
+          OPTIONAL { ?addr schema:addressLocality ?city       }
+          OPTIONAL { ?addr schema:addressRegion   ?province   }
+          OPTIONAL { ?addr schema:postalCode      ?postalCode }
+        }
+      }
+      LIMIT 30
+    SPARQL
+
+    data = sparql_request(sparql)
+    return nil unless data
+    parse_entity_details(data, uri)
+  rescue => e
+    Rails.logger.error("ArtsDataService#fetch_entity_details error: #{e.message}")
+    nil
+  end
+
+  # ── Events for an entity ─────────────────────────────────────────
+
+  def fetch_entity_events(uri:, predicates:, page: 1, image_filter: :any, limit: nil)
+    return [] if uri.blank? || predicates.blank?
+    actual_limit = limit || PER_PAGE
+    safe   = sanitize_sparql(uri)
+    offset = (page.to_i - 1) * actual_limit
+    union  = predicates.map { |p| "{ ?event #{p} <#{safe}> }" }.join("\n    UNION\n    ")
+    img_clause = case image_filter
+    when :with    then "FILTER EXISTS     { ?event schema:image ?_ic . ?_ic schema:url ?_iu }"
+    when :without then "FILTER NOT EXISTS { ?event schema:image ?_ic . ?_ic schema:url ?_iu }"
+    else               ""
+    end
+
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      PREFIX xsd:    <http://www.w3.org/2001/XMLSchema#>
+      SELECT ?event
+             (SAMPLE(?rawName)         AS ?name)
+             ?startDate
+             ?endDate
+             (SAMPLE(?rawImage)        AS ?image)
+             (SAMPLE(?rawUrl)          AS ?url)
+             (SAMPLE(?rawLocName)      AS ?locationName)
+             (SAMPLE(?rawCity)         AS ?city)
+             (SAMPLE(?rawProvince)     AS ?province)
+             (SAMPLE(?rawStatus)       AS ?status)
+             (GROUP_CONCAT(DISTINCT STR(?anyType); SEPARATOR="|") AS ?types)
+             (SAMPLE(?loc)             AS ?locationUri)
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+        ?event a schema:Event .
+        #{union}
+        ?event schema:name      ?rawName .
+        ?event schema:startDate ?startDate .
+        FILTER(datatype(?startDate) = xsd:dateTime)
+        #{img_clause}
+        OPTIONAL { ?event schema:endDate ?endDate }
+        OPTIONAL { ?event schema:image ?imgNode . ?imgNode schema:url ?rawImage }
+        OPTIONAL { ?event schema:url ?rawUrl }
+        OPTIONAL { ?event schema:eventStatus ?rawStatus }
+        OPTIONAL { ?event schema:additionalType ?anyType }
+        OPTIONAL {
+          ?event schema:location ?loc .
+          OPTIONAL { ?loc schema:name ?rawLocName }
+          OPTIONAL {
+            ?loc schema:address ?addr .
+            OPTIONAL { ?addr schema:addressLocality ?rawCity }
+            OPTIONAL { ?addr schema:addressRegion    ?rawProvince }
+          }
+        }
+      }
+      GROUP BY ?event ?startDate ?endDate
+      ORDER BY ?startDate
+      LIMIT #{actual_limit}
+      OFFSET #{offset}
+    SPARQL
+
+    data = sparql_request(sparql)
+    return [] unless data
+    parse_events(data)
+  rescue => e
+    Rails.logger.error("ArtsDataService#fetch_entity_events error: #{e.message}")
+    []
   end
 
   # Returns filtered autocomplete suggestions as an array of hashes:
@@ -256,7 +379,8 @@ class ArtsDataService
         province:      province,
         status:        uri_local(b.dig("status", "value")),
         type:          labels[best_uri],
-        type_uri:      best_uri
+        type_uri:      best_uri,
+        location_uri:  b.dig("locationUri", "value")
       }
     end
   end
@@ -338,8 +462,8 @@ class ArtsDataService
       end
     end
 
-    result[:performers] = preferred_lang_names(performers_by_entity)
-    result[:organizers] = preferred_lang_names(organizers_by_entity)
+    result[:performers] = preferred_lang_entities(performers_by_entity)
+    result[:organizers] = preferred_lang_entities(organizers_by_entity)
     result
   end
 
@@ -358,6 +482,15 @@ class ArtsDataService
 
   def preferred_lang_names(hash)
     hash.values.filter_map { |names| names[:fr] || names[:en] || names[:other] }.uniq
+  end
+
+  def preferred_lang_entities(hash)
+    hash.filter_map do |key, names|
+      name = names[:fr] || names[:en] || names[:other]
+      next unless name.present?
+      uri = (key.is_a?(String) && key.start_with?("http")) ? key : nil
+      { uri: uri, name: name }
+    end.uniq { |e| e[:name] }
   end
 
   def add_unique(arr, value)
@@ -497,6 +630,101 @@ class ArtsDataService
       .join(", ")
     return "" if safe.blank?
     "FILTER EXISTS { ?event schema:additionalType ?conceptType . FILTER(?conceptType IN (#{safe})) }"
+  end
+
+  # ── Entity listing / detail helpers ─────────────────────────────
+
+  def fetch_entity_listing(q:, page:, predicates:, is_venue: false)
+    offset       = (page.to_i - 1) * PER_PAGE_ENTITIES
+    safe_q       = q.present? ? sanitize_sparql(q) : nil
+    union        = predicates.map { |p| "{ ?event #{p} ?entity }" }.join("\n    UNION\n    ")
+    kw_filter    = safe_q.present? ? "FILTER(CONTAINS(LCASE(STR(?rawName)), LCASE(\"#{safe_q}\")))" : ""
+    venue_select = is_venue ? "(SAMPLE(?rawCity) AS ?city) (SAMPLE(?rawProvince) AS ?province)" : ""
+    venue_opt    = is_venue ? "OPTIONAL { ?entity schema:address ?addr . OPTIONAL { ?addr schema:addressLocality ?rawCity } OPTIONAL { ?addr schema:addressRegion ?rawProvince } }" : ""
+
+    sparql = <<~SPARQL
+      PREFIX schema: <http://schema.org/>
+      SELECT ?entity
+             (SAMPLE(?rawName) AS ?name)
+             (COALESCE(SAMPLE(?rawImgObj), SAMPLE(?rawImgLit)) AS ?image)
+             #{venue_select}
+             (COUNT(DISTINCT ?event) AS ?eventCount)
+      FROM <http://kg.artsdata.ca/core>
+      WHERE {
+        ?event a schema:Event .
+        #{union}
+        ?entity schema:name ?rawName .
+        #{kw_filter}
+        OPTIONAL { ?entity schema:image ?imgNode . ?imgNode schema:url ?rawImgObj }
+        OPTIONAL { ?entity schema:image ?rawImgLit . FILTER(isLiteral(?rawImgLit)) }
+        #{venue_opt}
+      }
+      GROUP BY ?entity
+      ORDER BY ?name
+      LIMIT #{PER_PAGE_ENTITIES}
+      OFFSET #{offset}
+    SPARQL
+
+    data = sparql_request(sparql)
+    return [] unless data
+    parse_entity_listing(data, is_venue: is_venue)
+  rescue => e
+    Rails.logger.error("ArtsDataService#fetch_entity_listing error: #{e.message}")
+    []
+  end
+
+  def parse_entity_listing(data, is_venue: false)
+    (data.dig("results", "bindings") || []).filter_map do |b|
+      name = b.dig("name", "value")
+      next unless name.present?
+      h = {
+        uri:         b.dig("entity",     "value"),
+        name:        name,
+        image:       b.dig("image",      "value"),
+        event_count: b.dig("eventCount", "value").to_i
+      }
+      if is_venue
+        prov_raw    = b.dig("province", "value")
+        h[:city]     = b.dig("city", "value")
+        h[:province] = PROVINCE_CODES[prov_raw] || prov_raw
+      end
+      h
+    end
+  end
+
+  def parse_entity_details(data, uri)
+    bindings = data.dig("results", "bindings") || []
+    return nil if bindings.empty?
+
+    result = { uri: uri, name: nil, image: nil, description: nil,
+               url: nil, same_as: [], street: nil, city: nil,
+               province: nil, postal_code: nil }
+
+    names_by_lang = {}
+    descs_by_lang = {}
+
+    bindings.each do |b|
+      collect_lang_name(names_by_lang, uri,
+                        b.dig("name", "value"),
+                        b.dig("name", "xml:lang").to_s)
+      collect_lang_name(descs_by_lang, uri,
+                        b.dig("description", "value"),
+                        b.dig("description", "xml:lang").to_s)
+
+      result[:image]       ||= b.dig("imgObj", "value").presence || b.dig("imgLit", "value")
+      result[:url]         ||= b.dig("url",     "value")
+      result[:street]      ||= b.dig("street",  "value")
+      result[:postal_code] ||= b.dig("postalCode", "value")
+      add_unique(result[:same_as], b.dig("sameAs", "value"))
+
+      prov_raw = b.dig("province", "value")
+      result[:city]     ||= b.dig("city", "value")
+      result[:province] ||= PROVINCE_CODES[prov_raw] || prov_raw if prov_raw.present?
+    end
+
+    result[:name]        = preferred_lang_names(names_by_lang).first
+    result[:description] = preferred_lang_names(descs_by_lang).first
+    result[:name].present? ? result : nil
   end
 
   # ── Locations cache ──────────────────────────────────────────────

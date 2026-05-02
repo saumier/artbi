@@ -1,0 +1,78 @@
+<% content_for :title, "Artistes — ArtBI" %>
+
+<%= render "shared/nav" %>
+
+<%# ── Hero ────────────────────────────────────────────��───────────── %>
+<header class="ev-hero">
+  <div class="ev-hero__inner">
+    <p class="ev-hero__eyebrow">Scène canadienne</p>
+    <h1 class="ev-hero__title">Artistes</h1>
+    <p class="ev-hero__subtitle">Musiciens, comédiens et ensembles artistiques liés à des événements culturels</p>
+  </div>
+  <div class="ev-hero__wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z" fill="#f8f7ff"/>
+    </svg>
+  </div>
+</header>
+
+<%# ── Search ──────────────────────────────────────────────────────── %>
+<section class="ev-search-section">
+  <div class="ev-container">
+    <div class="en-search">
+      <%= form_with url: performers_path, method: :get, local: true,
+            data: { controller: "search-form", action: "submit->search-form#onSubmit" } do |f| %>
+        <div class="en-search__form">
+          <%= f.text_field :q, value: @search_query,
+                placeholder: "Rechercher un artiste…",
+                class: "en-search__input",
+                autocomplete: "off" %>
+          <button type="submit" class="ev-btn ev-btn--primary"
+                  data-search-form-target="btn">
+            <span class="ev-btn__label">Rechercher</span>
+            <span class="ev-btn__spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</section>
+
+<%# ── Results ─────────────────────────────────────────────────────── %>
+<main class="ev-main ev-container">
+  <% if @entities.empty? %>
+    <div class="ev-empty">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="ev-empty__icon">
+        <circle cx="32" cy="24" r="12" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 56c0-13.255 10.745-24 24-24s24 10.745 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h2 class="ev-empty__title">Aucun artiste trouvé</h2>
+      <p class="ev-empty__text"><%= link_to "Réinitialiser la recherche", performers_path, class: "ev-link" %></p>
+    </div>
+  <% else %>
+    <% has_more = @entities.length == ArtsDataService::PER_PAGE_ENTITIES %>
+    <div data-controller="infinite-scroll"
+         data-infinite-scroll-has-more-value="<%= has_more %>"
+         data-infinite-scroll-item-class-value="en-row"
+         data-infinite-scroll-per-page-value="<%= ArtsDataService::PER_PAGE_ENTITIES %>">
+      <table class="en-table">
+        <tbody data-infinite-scroll-target="grid">
+          <%= render partial: "card", collection: @entities, as: :entity %>
+        </tbody>
+      </table>
+      <div class="ev-loader" hidden data-infinite-scroll-target="loader" aria-label="Chargement…">
+        <span class="ev-loader__ring"></span>
+      </div>
+      <% if has_more %>
+        <div class="ev-sentinel" data-infinite-scroll-target="sentinel" aria-hidden="true"></div>
+      <% end %>
+    </div>
+  <% end %>
+</main>
+
+<footer class="ev-footer">
+  <div class="ev-container ev-footer__inner">
+    <p>Données fournies par <a href="https://artsdata.ca" target="_blank" rel="noopener" class="ev-link">Artsdata.ca</a></p>
+    <p class="ev-footer__copy">&copy; <%= Date.today.year %> ArtBI</p>
+  </div>
+</footer>

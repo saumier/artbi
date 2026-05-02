@@ -1,0 +1,27 @@
+<%# Shared top nav — used by events, performers, presenters, venues pages %>
+<nav class="ev-nav">
+  <div class="ev-nav__inner">
+    <a class="ev-nav__brand" href="/">ArtBI</a>
+    <button class="ev-nav__toggle" id="evNavToggle" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="ev-nav__links" id="evNavLinks">
+      <li><a href="<%= events_path %>" class="ev-nav__link <%= 'ev-nav__link--active' if controller_name == 'events' %>">Événements</a></li>
+      <li><a href="<%= performers_path %>" class="ev-nav__link <%= 'ev-nav__link--active' if controller_name == 'performers' %>">Artistes</a></li>
+      <li><a href="<%= presenters_path %>" class="ev-nav__link <%= 'ev-nav__link--active' if controller_name == 'presenters' %>">Présentateurs</a></li>
+      <li><a href="<%= venues_path %>" class="ev-nav__link <%= 'ev-nav__link--active' if controller_name == 'venues' %>">Lieux</a></li>
+    </ul>
+  </div>
+</nav>
+<script>
+  (function () {
+    var toggle = document.getElementById("evNavToggle");
+    var links  = document.getElementById("evNavLinks");
+    if (toggle && links) {
+      toggle.addEventListener("click", function () {
+        links.classList.toggle("ev-nav__links--open");
+        this.classList.toggle("ev-nav__toggle--open");
+      });
+    }
+  })();
+</script>

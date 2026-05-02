@@ -2,7 +2,12 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["grid", "sentinel", "loader"]
-  static values  = { page: { type: Number, default: 1 }, hasMore: { type: Boolean, default: true } }
+  static values  = {
+    page:      { type: Number,  default: 1 },
+    hasMore:   { type: Boolean, default: true },
+    itemClass: { type: String,  default: "ev-card" },
+    perPage:   { type: Number,  default: 12 }
+  }
 
   connect() {
     this._observer = new IntersectionObserver(
@@ -59,8 +64,8 @@ export default class extends Controller {
       this.pageValue = nextPage
 
       // If a full page was returned there may be more — re-arm the observer
-      const count = (html.match(/class="ev-card"/g) || []).length
-      if (count >= 12) {
+      const count = (html.match(new RegExp(`class="${this.itemClassValue}"`, "g")) || []).length
+      if (count >= this.perPageValue) {
         this.hasMoreValue = true
         // Sentinel may still be in view after new cards are inserted; check again.
         requestAnimationFrame(() => this._checkSentinelVisible())

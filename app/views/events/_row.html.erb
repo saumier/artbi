@@ -1,0 +1,89 @@
+<%
+  t          = event[:start_time]
+  show_time  = t && !(t.hour == 0 && t.min == 0)
+  status     = event[:status]
+  end_for_row = event[:end_date] && event[:end_date].to_date != event[:start_date]&.to_date \
+                  ? modal_date_str(event[:end_date]) : ""
+%>
+<tr class="en-event-row">
+  <td class="en-event-row__date">
+    <% if event[:start_date] %>
+      <div class="ev-card__date-block">
+        <time datetime="<%= event[:start_date].iso8601 %>" class="ev-card__date">
+          <span class="ev-card__date-day"><%= event[:start_date].strftime("%-d") %></span>
+          <span class="ev-card__date-month"><%= event[:start_date].strftime("%b") %></span>
+          <span class="ev-card__date-year"><%= event[:start_date].strftime("%Y") %></span>
+        </time>
+        <% if event[:end_date] && event[:end_date].to_date != event[:start_date].to_date %>
+          <span class="ev-card__date-sep">→</span>
+          <time datetime="<%= event[:end_date].iso8601 %>" class="ev-card__date ev-card__date--end">
+            <span class="ev-card__date-day"><%= event[:end_date].strftime("%-d") %></span>
+            <span class="ev-card__date-month"><%= event[:end_date].strftime("%b") %></span>
+          </time>
+        <% end %>
+      </div>
+      <% if show_time %>
+        <p class="ev-card__time" style="margin:0">
+          <svg class="ev-card__time-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 4.5v3.75l2.5 1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <%= t.strftime("%-H:%M") %><span class="ev-card__tz"><%= t.zone %></span>
+        </p>
+      <% end %>
+    <% end %>
+  </td>
+
+  <td class="en-event-row__info">
+    <span class="en-event-row__name"><%= event[:name] %></span>
+    <% if event[:location_name].present? || event[:city].present? %>
+      <p class="ev-card__venue">
+        <svg class="ev-card__venue-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+        </svg>
+        <span>
+          <% if event[:location_name].present? %>
+            <span class="ev-card__venue-name"><%= event[:location_name] %></span>
+          <% end %>
+          <% if event[:city].present? %>
+            <span class="ev-card__venue-city"><%= event[:city] %></span>
+          <% end %>
+        </span>
+      </p>
+    <% end %>
+    <% if event[:type].present? || (status.present? && status != "EventScheduled") %>
+      <span class="en-event-row__tags">
+        <% if event[:type].present? %>
+          <span class="ev-chip en-event-row__type-chip"><%= event[:type] %></span>
+        <% end %>
+        <% if status.present? && status != "EventScheduled" %>
+          <span class="ev-card__status ev-card__status--<%= status.underscore.dasherize %>">
+            <%= case status
+                when "EventCancelled" then "Annulé"
+                when "EventPostponed" then "Reporté"
+                else status
+                end %>
+          </span>
+        <% end %>
+      </span>
+    <% end %>
+  </td>
+
+  <td class="en-event-row__action">
+    <button class="ev-btn ev-btn--sm ev-btn--ghost"
+            data-action="click->event-modal#open"
+            data-event-modal-name-param="<%= event[:name] %>"
+            data-event-modal-url-param="<%= event[:url] %>"
+            data-event-modal-image-param="<%= event[:image] %>"
+            data-event-modal-uri-param="<%= event[:uri] %>"
+            data-event-modal-start-date-param="<%= modal_date_str(event[:start_date]) %>"
+            data-event-modal-start-time-param="<%= modal_time_str(event[:start_time]) %>"
+            data-event-modal-end-date-param="<%= end_for_row %>"
+            data-event-modal-location-name-param="<%= event[:location_name] %>"
+            data-event-modal-city-param="<%= event[:city] %>"
+            data-event-modal-province-param="<%= event[:province] %>"
+            data-event-modal-location-uri-param="<%= event[:location_uri] %>">
+      Détails
+    </button>
+  </td>
+</tr>

@@ -13,21 +13,31 @@
   <% if details[:start_date].present? %>
     <div class="ev-modal__meta-row">
       <span class="ev-modal__meta-label">Date</span>
-      <p class="ev-modal__meta-value ev-modal__date-line">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="ev-modal__meta-icon">
-          <rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/>
-          <path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke-linecap="round"/>
-        </svg>
-        <span>
-          <%= details[:start_date] %>
-          <% if details[:end_date].present? %>
-            <span class="ev-modal__date-sep">→</span> <%= details[:end_date] %>
-          <% end %>
-          <% if details[:start_time].present? %>
-            <span class="ev-modal__time-sep">·</span> <%= details[:start_time] %>
-          <% end %>
-        </span>
-      </p>
+      <% s_day, s_month, s_year = details[:start_date].split(" ") %>
+      <div class="ev-card__date-block" style="margin-bottom:0">
+        <time class="ev-card__date">
+          <span class="ev-card__date-day"><%= s_day %></span>
+          <span class="ev-card__date-month"><%= s_month %></span>
+          <span class="ev-card__date-year"><%= s_year %></span>
+        </time>
+        <% if details[:end_date].present? %>
+          <% e_day, e_month = details[:end_date].split(" ") %>
+          <span class="ev-card__date-sep">→</span>
+          <time class="ev-card__date ev-card__date--end">
+            <span class="ev-card__date-day"><%= e_day %></span>
+            <span class="ev-card__date-month"><%= e_month %></span>
+          </time>
+        <% end %>
+      </div>
+      <% if details[:start_time].present? %>
+        <p class="ev-card__time" style="margin:.3rem 0 0">
+          <svg class="ev-card__time-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 4.5v3.75l2.5 1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <%= details[:start_time] %>
+        </p>
+      <% end %>
     </div>
   <% end %>
 
@@ -41,7 +51,11 @@
         </svg>
         <span>
           <% if details[:location_name].present? %>
-            <strong><%= details[:location_name] %></strong>
+            <% if details[:location_uri].present? %>
+              <%= link_to details[:location_name], venue_path(uri: details[:location_uri]), class: "ev-link" %>
+            <% else %>
+              <strong><%= details[:location_name] %></strong>
+            <% end %>
           <% end %>
           <% if details[:city].present? || details[:province].present? %>
             <span class="ev-modal__venue-location">
@@ -101,7 +115,16 @@
   <% if details[:performers].any? %>
     <div class="ev-modal__meta-row">
       <span class="ev-modal__meta-label">Artistes / Interprètes</span>
-      <p class="ev-modal__meta-value"><%= details[:performers].join(", ") %></p>
+      <p class="ev-modal__meta-value">
+        <% details[:performers].each_with_index do |p, i| %>
+          <%= ", " if i > 0 %>
+          <% if p[:uri].present? %>
+            <%= link_to p[:name], performer_path(uri: p[:uri]), class: "ev-link" %>
+          <% else %>
+            <%= p[:name] %>
+          <% end %>
+        <% end %>
+      </p>
     </div>
   <% end %>
 
@@ -109,7 +132,16 @@
   <% if details[:organizers].any? %>
     <div class="ev-modal__meta-row">
       <span class="ev-modal__meta-label">Organisateurs</span>
-      <p class="ev-modal__meta-value"><%= details[:organizers].join(", ") %></p>
+      <p class="ev-modal__meta-value">
+        <% details[:organizers].each_with_index do |o, i| %>
+          <%= ", " if i > 0 %>
+          <% if o[:uri].present? %>
+            <%= link_to o[:name], presenter_path(uri: o[:uri]), class: "ev-link" %>
+          <% else %>
+            <%= o[:name] %>
+          <% end %>
+        <% end %>
+      </p>
     </div>
   <% end %>
 

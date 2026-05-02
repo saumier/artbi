@@ -7,10 +7,19 @@
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto">
         <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="/">Home</a>
+          <a class="nav-link active" aria-current="page" href="/">Accueil</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/evenements">Événements</a>
+          <a class="nav-link" href="<%= events_path %>">Événements</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="<%= performers_path %>">Artistes</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="<%= presenters_path %>">Présentateurs</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="<%= venues_path %>">Lieux</a>
         </li>
       </ul>
     </div>

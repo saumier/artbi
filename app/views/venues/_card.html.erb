@@ -1,0 +1,27 @@
+<tr class="en-row">
+  <td class="en-row__icon">
+    <% if entity[:image].present? %>
+      <img src="<%= entity[:image] %>" alt="" class="en-row__thumb" loading="lazy">
+    <% else %>
+      <div class="en-row__icon-placeholder" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/>
+        </svg>
+      </div>
+    <% end %>
+  </td>
+  <td class="en-row__name-cell">
+    <a href="<%= venue_path(uri: entity[:uri]) %>" class="en-row__link"><%= entity[:name] %></a>
+    <%
+      location_parts = [
+        entity[:city],
+        ArtsDataService::PROVINCE_NAMES[entity[:province]] || entity[:province]
+      ].compact.select(&:present?)
+    %>
+    <% if location_parts.any? %>
+      <span class="en-row__meta"><%= location_parts.join(", ") %></span>
+    <% elsif entity[:event_count].to_i > 0 %>
+      <span class="en-row__meta"><%= entity[:event_count] %> événement<%= entity[:event_count] > 1 ? "s" : "" %></span>
+    <% end %>
+  </td>
+</tr>

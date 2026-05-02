@@ -57,6 +57,7 @@ class EventsController < ApplicationController
     details[:location_name] = params[:location_name].to_s.presence
     details[:city]          = params[:city].to_s.presence
     details[:province]      = params[:province].to_s.presence
+    details[:location_uri]  = params[:location_uri].to_s.presence
 
     render partial: "event_details", locals: { details: details }
   end

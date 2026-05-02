@@ -14,7 +14,7 @@ export default class extends Controller {
     document.removeEventListener("turbo:before-cache", this._onBeforeCache)
   }
 
-  async open({ params: { name, url, image, uri, startDate, startTime, endDate, locationName, city, province } }) {
+  async open({ params: { name, url, image, uri, startDate, startTime, endDate, locationName, city, province, locationUri } }) {
     this.titleTarget.textContent = name ?? ""
     this.contentTarget.innerHTML = ""
     this.footerTarget.innerHTML  = ""
@@ -33,6 +33,7 @@ export default class extends Controller {
       if (locationName) ep.searchParams.set("location_name", locationName)
       if (city)         ep.searchParams.set("city",          city)
       if (province)     ep.searchParams.set("province",      province)
+      if (locationUri)  ep.searchParams.set("location_uri",  locationUri)
 
       const res = await fetch(ep, { headers: { Accept: "text/html" } })
       if (!res.ok) throw new Error()

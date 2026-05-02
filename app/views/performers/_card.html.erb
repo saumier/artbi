@@ -1,0 +1,19 @@
+<tr class="en-row">
+  <td class="en-row__icon">
+    <% if entity[:image].present? %>
+      <img src="<%= entity[:image] %>" alt="" class="en-row__thumb" loading="lazy">
+    <% else %>
+      <div class="en-row__icon-placeholder" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+    <% end %>
+  </td>
+  <td class="en-row__name-cell">
+    <a href="<%= performer_path(uri: entity[:uri]) %>" class="en-row__link"><%= entity[:name] %></a>
+    <% if entity[:event_count].to_i > 0 %>
+      <span class="en-row__meta"><%= entity[:event_count] %> événement<%= entity[:event_count] > 1 ? "s" : "" %></span>
+    <% end %>
+  </td>
+</tr>

@@ -9,10 +9,18 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  get "evenements/locations", to: "events#locations", as: :event_locations
-  get "evenements/details",   to: "events#details",   as: :event_details
-  get "evenements",           to: "events#index",     as: :events
+  get "evenements/locations", to: "events#locations",     as: :event_locations
+  get "evenements/details",   to: "events#details",       as: :event_details
+  get "evenements",           to: "events#index",         as: :events
 
-  # Defines the root path route ("/")
-  root "pages#home"
+  get "artistes/details",     to: "performers#show",      as: :performer
+  get "artistes",             to: "performers#index",     as: :performers
+
+  get "presentateurs/details", to: "presenters#show",    as: :presenter
+  get "presentateurs",         to: "presenters#index",   as: :presenters
+
+  get "lieux/details",        to: "venues#show",          as: :venue
+  get "lieux",                to: "venues#index",         as: :venues
+
+  root "events#index"
 end

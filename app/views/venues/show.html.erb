@@ -1,0 +1,149 @@
+<% content_for :title, "#{@entity[:name]} — ArtBI" %>
+
+<%= render "shared/nav" %>
+
+<section class="en-entity">
+  <div class="en-entity__inner">
+    <div class="en-entity__image-col">
+      <div class="en-entity__image-wrap">
+        <% if @entity[:image].present? %>
+          <img src="<%= @entity[:image] %>" alt="<%= @entity[:name] %>" class="en-entity__image">
+        <% else %>
+          <div class="en-entity__placeholder" aria-hidden="true">
+            <span><%= @entity[:name]&.upcase&.first(2) || "?" %></span>
+          </div>
+        <% end %>
+      </div>
+      <% kid = artsdata_kid(@entity[:uri]) %>
+      <% if kid %>
+        <a href="http://kg.artsdata.ca/resource/<%= kid %>"
+           target="_blank" rel="noopener noreferrer"
+           class="ev-btn ev-btn--artsdata"
+           style="margin-left:0"
+           title="Voir sur Artsdata.ca">
+          <img src="https://kg.artsdata.ca/favicon.ico" alt="" class="ev-modal__artsdata-favicon"
+               width="12" height="12" aria-hidden="true">
+          <span class="ev-modal__kid"><%= kid %></span>
+        </a>
+      <% end %>
+    </div>
+    <div class="en-entity__info">
+      <p class="en-entity__eyebrow">Lieu</p>
+      <h1 class="en-entity__name"><%= @entity[:name] %></h1>
+
+      <%# Address block %>
+      <% addr_parts = [
+           @entity[:street],
+           @entity[:city],
+           [ ArtsDataService::PROVINCE_NAMES[@entity[:province]] || @entity[:province],
+             @entity[:postal_code]
+           ].compact.join(" ")
+         ].select(&:present?) %>
+      <% if addr_parts.any? %>
+        <p class="en-entity__address">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" style="flex-shrink:0;color:var(--ev-primary-light)">
+            <path d="M8 1a5 5 0 00-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/>
+          </svg>
+          <%= addr_parts.join(", ") %>
+        </p>
+      <% end %>
+
+      <% if @entity[:description].present? %>
+        <div class="en-entity__desc"><%= simple_format(@entity[:description]) %></div>
+      <% end %>
+      <div class="en-entity__links">
+        <% if @entity[:url].present? %>
+          <a href="<%= @entity[:url] %>" target="_blank" rel="noopener noreferrer"
+             class="ev-btn ev-btn--primary">
+            Site officiel
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 3.5H3.5A1.5 1.5 0 002 5v7.5A1.5 1.5 0 003.5 14H11a1.5 1.5 0 001.5-1.5V10M9 2h5m0 0v5m0-5L8 9"/>
+            </svg>
+          </a>
+        <% end %>
+        <% @entity[:same_as].each do |link| %>
+          <a href="<%= link %>" target="_blank" rel="noopener noreferrer"
+             class="ev-btn ev-btn--outline">
+            <%= social_label(link) %>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 3.5H3.5A1.5 1.5 0 002 5v7.5A1.5 1.5 0 003.5 14H11a1.5 1.5 0 001.5-1.5V10M9 2h5m0 0v5m0-5L8 9"/>
+            </svg>
+          </a>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="ev-main ev-container"
+      data-controller="event-modal"
+      data-event-modal-details-url-value="<%= event_details_path %>">
+
+  <div class="en-events">
+    <h2 class="en-events__heading">Événements associés</h2>
+    <% if @events.empty? && @events_table.empty? %>
+      <p class="ev-empty__text">Aucun événement trouvé.</p>
+    <% else %>
+      <% if @events.any? %>
+        <% has_more = @events.length == 6 %>
+        <div data-controller="load-more"
+             data-load-more-has-more-value="<%= has_more %>">
+          <div class="ev-grid" data-load-more-target="grid">
+            <%= render partial: "events/card", collection: @events, as: :event %>
+          </div>
+          <div class="ev-loader" hidden data-load-more-target="loader" aria-label="Chargement…">
+            <span class="ev-loader__ring"></span>
+          </div>
+          <% if has_more %>
+            <div class="en-load-more">
+              <button class="ev-btn ev-btn--outline"
+                      data-load-more-target="button"
+                      data-action="click->load-more#load">
+                Afficher plus
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% if @events_table.any? %>
+        <table class="en-event-table">
+          <tbody>
+            <% @events_table.each do |event| %>
+              <%= render "events/row", event: event %>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    <% end %>
+  </div>
+
+  <dialog class="ev-modal"
+          data-event-modal-target="dialog"
+          data-action="click->event-modal#backdropClick">
+    <div class="ev-modal__box">
+      <header class="ev-modal__header">
+        <h2 class="ev-modal__title" data-event-modal-target="title"></h2>
+        <button class="ev-modal__close" data-action="click->event-modal#close" aria-label="Fermer">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+      <div class="ev-modal__body">
+        <div class="ev-loader" hidden data-event-modal-target="loader" aria-label="Chargement…">
+          <span class="ev-loader__ring"></span>
+        </div>
+        <div data-event-modal-target="content"></div>
+      </div>
+      <div class="ev-modal__footer" data-event-modal-target="footer" hidden></div>
+    </div>
+  </dialog>
+</main>
+
+<footer class="ev-footer">
+  <div class="ev-container ev-footer__inner">
+    <p>Données fournies par <a href="https://artsdata.ca" target="_blank" rel="noopener" class="ev-link">Artsdata.ca</a></p>
+    <p class="ev-footer__copy">&copy; <%= Date.today.year %> ArtBI</p>
+  </div>
+</footer>

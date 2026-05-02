@@ -1,0 +1,305 @@
+/* =========================================================
+   ArtBI — Entity pages (performers, presenters, venues)
+   Reuses ev- design tokens defined in events.css
+   ========================================================= */
+
+/* ── Entity listing table ───────────────────────��───────── */
+
+.en-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ev-font);
+}
+
+.en-row {
+  border-bottom: 1px solid var(--ev-border);
+  transition: background var(--ev-transition);
+}
+
+.en-row:hover { background: var(--ev-bg); }
+
+.en-row__icon {
+  width: 52px;
+  padding: .6rem .75rem .6rem 0;
+  vertical-align: middle;
+}
+
+.en-row__thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ev-radius-sm);
+  object-fit: cover;
+  display: block;
+}
+
+.en-row__icon-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ev-radius-sm);
+  background: var(--ev-primary-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ev-primary-light);
+  flex-shrink: 0;
+}
+
+.en-row__icon-placeholder svg {
+  width: 20px;
+  height: 20px;
+}
+
+.en-row__name-cell {
+  padding: .6rem .5rem;
+  vertical-align: middle;
+}
+
+.en-row__link {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--ev-text);
+  text-decoration: none;
+  display: block;
+}
+
+.en-row__link:hover { color: var(--ev-primary); }
+
+.en-row__meta {
+  font-size: .78rem;
+  color: var(--ev-text-muted);
+  display: block;
+  margin-top: .1rem;
+}
+
+/* ── Entity detail header ───────────────────────���───────── */
+
+.en-entity {
+  background: var(--ev-card);
+  border-bottom: 1px solid var(--ev-border);
+}
+
+.en-entity__inner {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 2rem;
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+/* Column that stacks the image above the Artsdata button */
+.en-entity__image-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .4rem;
+  flex-shrink: 0;
+  width: 140px;
+}
+
+.en-entity__image-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--ev-radius);
+  overflow: hidden;
+  background: var(--ev-primary-pale);
+  box-shadow: var(--ev-shadow-md);
+}
+
+.en-entity__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.en-entity__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--ev-primary-dark), var(--ev-primary-light));
+  color: #fff;
+  font-family: var(--ev-font);
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  user-select: none;
+}
+
+.en-entity__info { flex: 1; min-width: 0; }
+
+.en-entity__eyebrow {
+  font-family: var(--ev-font);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ev-primary-light);
+  margin: 0 0 .4rem;
+}
+
+.en-entity__name {
+  font-family: var(--ev-font);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ev-text);
+  margin: 0 0 .75rem;
+  line-height: 1.2;
+}
+
+.en-entity__address {
+  font-family: var(--ev-font);
+  font-size: .88rem;
+  color: var(--ev-text-muted);
+  margin: 0 0 .75rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.en-entity__desc {
+  font-family: var(--ev-font);
+  font-size: .9rem;
+  color: var(--ev-text);
+  line-height: 1.65;
+  margin: 0 0 1rem;
+}
+
+.en-entity__desc p { margin: 0 0 .5em; }
+.en-entity__desc p:last-child { margin-bottom: 0; }
+
+.en-entity__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+
+
+/* ── Entity events section ──────────────────────────────── */
+
+.en-events { padding: 2rem 0 3rem; }
+
+.en-events__heading {
+  font-family: var(--ev-font);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ev-text);
+  margin: 0 0 1.25rem;
+}
+
+/* ── Entity search bar ─────────────────���────────────────── */
+
+.en-search { padding: 1.25rem 0 1.5rem; }
+
+.en-search__form {
+  display: flex;
+  gap: .65rem;
+  max-width: 480px;
+}
+
+.en-search__input {
+  flex: 1;
+  padding: .55rem .9rem;
+  border: 1.5px solid var(--ev-border);
+  border-radius: var(--ev-radius-sm);
+  font-family: var(--ev-font);
+  font-size: .9rem;
+  color: var(--ev-text);
+  background: var(--ev-card);
+  transition: border-color var(--ev-transition), box-shadow var(--ev-transition);
+}
+
+.en-search__input:focus {
+  outline: none;
+  border-color: var(--ev-primary-light);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+}
+
+/* ── Load-more button ───────────────────────────────────── */
+
+.en-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0 .5rem;
+}
+
+/* ── No-image event table ───────────────────────────────── */
+
+.en-event-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ev-font);
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--ev-border);
+}
+
+.en-event-row {
+  border-bottom: 1px solid var(--ev-border);
+  transition: background var(--ev-transition);
+}
+
+.en-event-row:hover { background: var(--ev-bg); }
+
+.en-event-row__date {
+  padding: .85rem 1.1rem .85rem 0;
+  vertical-align: top;
+  white-space: nowrap;
+  width: 130px;
+}
+
+.en-event-row__date .ev-card__date-block { margin-bottom: .3rem; }
+
+.en-event-row__info {
+  padding: .7rem .75rem;
+  vertical-align: top;
+}
+
+.en-event-row__name {
+  display: block;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--ev-text);
+  line-height: 1.35;
+  margin-bottom: .2rem;
+}
+
+
+.en-event-row__tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  align-items: center;
+}
+
+.en-event-row__type-chip {
+  font-size: .68rem;
+  padding: .12rem .4rem;
+}
+
+.en-event-row__action {
+  padding: .7rem 0 .7rem .5rem;
+  vertical-align: middle;
+  white-space: nowrap;
+  text-align: right;
+}
+
+@media (max-width: 500px) {
+  .en-event-row__date { width: 100px; }
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .en-entity__inner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.75rem 1rem 1.5rem;
+  }
+
+  .en-entity__links { justify-content: center; }
+  .en-entity__name  { font-size: 1.4rem; }
+}

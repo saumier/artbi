@@ -1,18 +1,7 @@
 <% content_for :title, "Événements au Canada" %>
 
 <%# ── Navigation ──────────────────────────────────────────────────── %>
-<nav class="ev-nav">
-  <div class="ev-nav__inner">
-    <a class="ev-nav__brand" href="/">ArtBI</a>
-    <button class="ev-nav__toggle" id="evNavToggle" aria-label="Toggle navigation">
-      <span></span><span></span><span></span>
-    </button>
-    <ul class="ev-nav__links" id="evNavLinks">
-      <li><a href="/" class="ev-nav__link">Accueil</a></li>
-      <li><a href="<%= events_path %>" class="ev-nav__link ev-nav__link--active">Événements</a></li>
-    </ul>
-  </div>
-</nav>
+<%= render "shared/nav" %>
 
 <%# ── Hero ────────────────────────────────────────────────────────── %>
 <header class="ev-hero">
@@ -174,7 +163,7 @@
 
           <% if @location.present? %>
             <span class="ev-chip ev-chip--location">
-              <svg viewBox="0 0 16 16" fill="currentColor" style="width:11px;height:11px;flex-shrink:0">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" style="flex-shrink:0">
                 <path d="M8 1a5 5 0 00-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 00-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z"/>
               </svg>
               <%= @location_label.presence || @location %>
@@ -191,7 +180,7 @@
 
           <% if @concept_uri.present? %>
             <span class="ev-chip ev-chip--concept">
-              <svg viewBox="0 0 16 16" fill="currentColor" style="width:11px;height:11px;flex-shrink:0">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11" style="flex-shrink:0">
                 <path d="M2 4a1 1 0 011-1h10a1 1 0 010 2H3a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 010 2H3a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 010 2H3a1 1 0 01-1-1z"/>
               </svg>
               <%= @concept_label.presence || @concept_uri.split("/").last %>
@@ -284,10 +273,3 @@
   </div>
 </footer>
 
-<%# ── Hamburger toggle script ─────────────────────────────────────── %>
-<script>
-  document.getElementById("evNavToggle").addEventListener("click", function () {
-    document.getElementById("evNavLinks").classList.toggle("ev-nav__links--open");
-    this.classList.toggle("ev-nav__toggle--open");
-  });
-</script>
