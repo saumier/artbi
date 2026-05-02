@@ -63,9 +63,10 @@ class ArtsDataService
     "Yukon"                        => "YT"
   ).freeze
 
-  def fetch_events(q: nil, date_from: nil, date_to: nil, location: nil, location_type: nil, page: 1)
-    from_date = date_from.present? ? "#{date_from}T00:00:00" : "#{Date.today}T00:00:00"
-    offset    = (page.to_i - 1) * PER_PAGE
+  def fetch_events(q: nil, date_from: nil, date_to: nil, location: nil, location_type: nil, concept_uri: nil, page: 1)
+    from_date    = date_from.present? ? "#{date_from}T00:00:00" : "#{Date.today}T00:00:00"
+    offset       = (page.to_i - 1) * PER_PAGE
+    concept_uris = concept_uri.present? ? expand_concept(concept_uri, cached_type_taxonomy) : []
 
     sparql = <<~SPARQL
       PREFIX schema: <http://schema.org/>
@@ -105,6 +106,7 @@ class ArtsDataService
           }
         }
         #{location_clause(location, location_type)}
+        #{concept_clause(concept_uris)}
       }
       GROUP BY ?event ?startDate ?endDate
       ORDER BY ?startDate
@@ -253,7 +255,8 @@ class ArtsDataService
         city:          b.dig("city",         "value"),
         province:      province,
         status:        uri_local(b.dig("status", "value")),
-        type:          labels[best_uri]
+        type:          labels[best_uri],
+        type_uri:      best_uri
       }
     end
   end
@@ -331,7 +334,7 @@ class ArtsDataService
       type_uri = b.dig("type", "value")
       if type_uri.present?
         label = labels[type_uri] || humanize_type(type_uri)
-        add_unique(result[:types], label)
+        result[:types] << { uri: type_uri, label: label } unless result[:types].any? { |t| t[:uri] == type_uri }
       end
     end
 
@@ -408,7 +411,7 @@ class ArtsDataService
   # ── Type taxonomy cache ──────────────────────────────────────────
 
   def cached_type_taxonomy
-    Rails.cache.fetch("artsdata_type_taxonomy_v1", expires_in: 12.hours) do
+    Rails.cache.fetch("artsdata_type_taxonomy_v2", expires_in: 12.hours) do
       fetch_type_taxonomy
     end
   end
@@ -417,11 +420,14 @@ class ArtsDataService
     sparql = <<~SPARQL
       PREFIX schema: <http://schema.org/>
       PREFIX skos:   <http://www.w3.org/2004/02/skos/core#>
-      SELECT DISTINCT ?type ?broader
+      SELECT DISTINCT ?type ?broader ?narrower ?closeMatch ?exactMatch
       WHERE {
         ?event a schema:Event .
         ?event schema:additionalType ?type .
-        ?type skos:broader ?broader .
+        OPTIONAL { ?type skos:broader    ?broader    }
+        OPTIONAL { ?type skos:narrower   ?narrower   }
+        OPTIONAL { ?type skos:closeMatch ?closeMatch }
+        OPTIONAL { ?type skos:exactMatch ?exactMatch }
       }
     SPARQL
 
@@ -430,21 +436,24 @@ class ArtsDataService
 
     map = {}
     (data.dig("results", "bindings") || []).each do |b|
-      type    = b.dig("type",    "value")
-      broader = b.dig("broader", "value")
-      next unless type.present? && broader.present?
-      (map[type] ||= []) << broader
+      type = b.dig("type", "value")
+      next unless type.present?
+      entry = map[type] ||= { broader: [], narrower: [], close_match: [], exact_match: [] }
+      add_unique(entry[:broader],     b.dig("broader",     "value"))
+      add_unique(entry[:narrower],    b.dig("narrower",    "value"))
+      add_unique(entry[:close_match], b.dig("closeMatch",  "value"))
+      add_unique(entry[:exact_match], b.dig("exactMatch",  "value"))
     end
     map
   end
 
-  # Returns the most specific URI from a list, using skos:broader ancestry.
+  # Returns the most specific URI from a list using skos:broader ancestry.
   # A type is dropped if it is an ancestor of any other type in the set.
   # Among equally specific candidates, artsdata.ca URIs are preferred.
-  def most_specific_type(type_uris, broader_map)
+  def most_specific_type(type_uris, taxonomy)
     return type_uris.first if type_uris.size <= 1
 
-    ancestors_of = type_uris.index_with { |t| type_ancestors(t, broader_map) }
+    ancestors_of = type_uris.index_with { |t| type_ancestors(t, taxonomy) }
 
     candidates = type_uris.reject do |t|
       type_uris.any? { |other| other != t && ancestors_of[other].include?(t) }
@@ -454,13 +463,40 @@ class ArtsDataService
     candidates.find { |t| t.include?("artsdata.ca") } || candidates.first
   end
 
-  def type_ancestors(type_uri, broader_map, visited = Set.new)
-    (broader_map[type_uri] || []).each do |parent|
+  def type_ancestors(type_uri, taxonomy, visited = Set.new)
+    (taxonomy.dig(type_uri, :broader) || []).each do |parent|
       next if visited.include?(parent)
       visited.add(parent)
-      type_ancestors(parent, broader_map, visited)
+      type_ancestors(parent, taxonomy, visited)
     end
     visited
+  end
+
+  # Expands a concept URI to itself + all narrower (recursive) + closeMatch + exactMatch.
+  def expand_concept(uri, taxonomy)
+    result = Set.new([ uri ])
+    collect_narrower(uri, taxonomy, result)
+    (taxonomy.dig(uri, :close_match) || []).each { |m| result.add(m) }
+    (taxonomy.dig(uri, :exact_match) || []).each { |m| result.add(m) }
+    result.to_a
+  end
+
+  def collect_narrower(uri, taxonomy, visited)
+    (taxonomy.dig(uri, :narrower) || []).each do |child|
+      next if visited.include?(child)
+      visited.add(child)
+      collect_narrower(child, taxonomy, visited)
+    end
+  end
+
+  def concept_clause(concept_uris)
+    return "" unless concept_uris.present?
+    safe = concept_uris
+      .select { |u| u.match?(/\Ahttps?:\/\/[^\s"'<>\\]+\z/) }
+      .map    { |u| "<#{u}>" }
+      .join(", ")
+    return "" if safe.blank?
+    "FILTER EXISTS { ?event schema:additionalType ?conceptType . FILTER(?conceptType IN (#{safe})) }"
   end
 
   # ── Locations cache ──────────────────────────────────────────────

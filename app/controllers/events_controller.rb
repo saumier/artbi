@@ -12,6 +12,8 @@ class EventsController < ApplicationController
     @location       = params[:location]
     @location_type  = params[:location_type]
     @location_label = params[:location_label]
+    @concept_uri    = params[:concept_uri]
+    @concept_label  = params[:concept_label]
     @page           = [ params[:page].to_i, 1 ].max
 
     effective_from, effective_to = resolve_date_range
@@ -22,6 +24,7 @@ class EventsController < ApplicationController
       date_to:       effective_to,
       location:      @location,
       location_type: @location_type,
+      concept_uri:   @concept_uri,
       page:          @page
     )
 

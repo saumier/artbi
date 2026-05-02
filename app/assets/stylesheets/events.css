@@ -390,6 +390,17 @@ body {
   border-radius: 100px;
 }
 
+.ev-chip--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--ev-transition), color var(--ev-transition);
+}
+
+.ev-chip--link:hover {
+  background: var(--ev-primary);
+  color: #fff;
+}
+
 .ev-chip__remove {
   color: var(--ev-primary);
   text-decoration: none;
@@ -579,6 +590,17 @@ body {
   padding: .22rem .6rem;
   border-radius: 100px;
   backdrop-filter: blur(4px);
+}
+
+.ev-card__badge--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--ev-transition), transform var(--ev-transition);
+}
+
+.ev-card__badge--link:hover {
+  background: rgba(109,40,217,1);
+  transform: scale(1.04);
 }
 
 /* Card body */
@@ -991,6 +1013,13 @@ body {
 
 /* Location chip variant */
 .ev-chip--location {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+/* Concept/type chip variant */
+.ev-chip--concept {
   display: inline-flex;
   align-items: center;
   gap: .3rem;

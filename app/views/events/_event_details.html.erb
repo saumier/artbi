@@ -90,7 +90,8 @@
       <span class="ev-modal__meta-label">Type d'événement</span>
       <div class="ev-modal__tags">
         <% details[:types].each do |t| %>
-          <span class="ev-chip"><%= t %></span>
+          <%= link_to t[:label], concept_filter_path(t[:uri], t[:label]),
+                class: "ev-chip ev-chip--link" %>
         <% end %>
       </div>
     </div>

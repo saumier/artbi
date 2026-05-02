@@ -32,6 +32,20 @@ module ApplicationHelper
     "admission.com"   => "Admission"
   }.freeze
 
+  def concept_filter_path(concept_uri, concept_label)
+    events_path(
+      q:              params[:q],
+      date_range:     params[:date_range],
+      date_from:      params[:date_from],
+      date_to:        params[:date_to],
+      location:       params[:location],
+      location_type:  params[:location_type],
+      location_label: params[:location_label],
+      concept_uri:    concept_uri,
+      concept_label:  concept_label
+    )
+  end
+
   def social_label(url)
     host = URI.parse(url).host.to_s.delete_prefix("www.")
     SOCIAL_HOSTS[host] || host.split(".").first.then { |h| h.present? ? h.capitalize : "Lien" }

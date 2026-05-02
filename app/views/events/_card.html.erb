@@ -13,7 +13,12 @@
       </div>
     <% end %>
     <% if event[:type].present? %>
-      <span class="ev-card__badge"><%= event[:type] %></span>
+      <% if event[:type_uri].present? %>
+        <%= link_to event[:type], concept_filter_path(event[:type_uri], event[:type]),
+              class: "ev-card__badge ev-card__badge--link" %>
+      <% else %>
+        <span class="ev-card__badge"><%= event[:type] %></span>
+      <% end %>
     <% end %>
   </div>
 
